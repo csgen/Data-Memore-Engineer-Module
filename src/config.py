@@ -25,8 +25,8 @@ class Settings(BaseSettings):
     # OpenAI
     openai_api_key: str
 
-    # NewsAPI
-    newsapi_key: str = ""
+    # Tavily Search API
+    tavily_api_key: str = ""
 
     # Reddit
     reddit_client_id: str = ""

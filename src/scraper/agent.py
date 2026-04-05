@@ -4,7 +4,7 @@ import logging
 
 from src.config import Settings
 from src.scraper.fetchers.base import BaseFetcher, RawArticle
-from src.scraper.fetchers.newsapi import NewsAPIFetcher
+from src.scraper.fetchers.newsapi import TavilyFetcher
 from src.scraper.fetchers.reddit import RedditFetcher
 from src.scraper.fetchers.rss import RSSFetcher
 
@@ -15,9 +15,9 @@ class ScraperAgent:
     def __init__(self, settings: Settings):
         self._fetchers: list[BaseFetcher] = []
 
-        # NewsAPI
-        if settings.newsapi_key:
-            self._fetchers.append(NewsAPIFetcher(api_key=settings.newsapi_key))
+        # Tavily Search API
+        if settings.tavily_api_key:
+            self._fetchers.append(TavilyFetcher(api_key=settings.tavily_api_key))
 
         # RSS feeds (no API key needed)
         self._fetchers.append(RSSFetcher())

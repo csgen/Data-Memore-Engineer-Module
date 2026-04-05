@@ -6,14 +6,14 @@ Data ingestion and memory layer for the Agentic AI News Fact-Checking system.
 
 ```
 News Sources --> Scraper Agent --> Preprocessing Agent --> Memory Agent --> Downstream Agents
-                (NewsAPI, RSS,    (Claim isolation,       (ChromaDB +      (Fact-Check,
+                (Tavily, RSS,    (Claim isolation,       (ChromaDB +      (Fact-Check,
                  Reddit)           Entity extraction,      Neo4j)           Entity Tracker,
                                    VLM captioning)                          Prediction)
 ```
 
 ### Modules
 
-- **Scraper Agent** — fetches news from NewsAPI, RSS feeds (BBC, Reuters, AP), and Reddit. Deduplicates via SHA-256 content hashing.
+- **Scraper Agent** — fetches news from Tavily, RSS feeds (BBC, Reuters, AP), and Reddit. Deduplicates via SHA-256 content hashing.
 - **Preprocessing Agent** — extracts falsifiable claims (LLM), entities (spaCy + LLM), and image captions (GPT-4o vision). Outputs structured JSON.
 - **Memory Agent** — dual-database wrapper (ChromaDB for semantic search, Neo4j for knowledge graph). Single facade API for all agents.
 
@@ -32,7 +32,7 @@ News Sources --> Scraper Agent --> Preprocessing Agent --> Memory Agent --> Down
 - Neo4j Aura Free account ([aura.neo4j.io](https://aura.neo4j.io))
 - ChromaDB Cloud account ([trychroma.com](https://trychroma.com))
 - OpenAI API key
-- NewsAPI key (optional)
+- Tavily API key (optional, 1000 free credits/month at [tavily.com](https://tavily.com))
 - Reddit API credentials (optional)
 
 ### 2. Configure Environment
@@ -98,7 +98,7 @@ src/
   pipeline.py            # End-to-end orchestration
   models/                # Pydantic data models (shared contract)
   memory/                # Memory Agent (ChromaDB + Neo4j facade)
-  scraper/               # Scraper Agent (NewsAPI, RSS, Reddit)
+  scraper/               # Scraper Agent (Tavily, RSS, Reddit)
   preprocessing/         # Preprocessing Agent (claims, entities, captions)
 scripts/
   init_neo4j.py          # Create DB constraints + indexes
