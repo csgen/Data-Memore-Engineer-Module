@@ -37,8 +37,4 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-3-small"
     llm_model: str = "gpt-4o"
 
-    # Scraper settings
-    scraper_interval_minutes: int = 30
-
-
 settings = Settings()
