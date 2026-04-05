@@ -1,0 +1,44 @@
+"""Application configuration loaded from environment variables."""
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # Neo4j Aura
+    neo4j_uri: str
+    neo4j_user: str = "neo4j"
+    neo4j_password: str
+
+    # ChromaDB Cloud
+    chroma_host: str = "api.trychroma.com"
+    chroma_port: int = 443
+    chroma_api_key: str = ""
+    chroma_tenant: str = ""
+    chroma_database: str = ""
+
+    # OpenAI
+    openai_api_key: str
+
+    # NewsAPI
+    newsapi_key: str = ""
+
+    # Reddit
+    reddit_client_id: str = ""
+    reddit_client_secret: str = ""
+    reddit_user_agent: str = "news-factcheck-scraper/1.0"
+
+    # Model settings
+    embedding_model: str = "text-embedding-3-small"
+    llm_model: str = "gpt-4o"
+
+    # Scraper settings
+    scraper_interval_minutes: int = 30
+
+
+settings = Settings()
