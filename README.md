@@ -7,22 +7,29 @@ Data ingestion and memory layer for the Agentic AI News Fact-Checking system.
 ```
 News Sources --> Scraper Agent --> Preprocessing Agent --> Memory Agent --> Downstream Agents
                 (Tavily, RSS,    (Claim isolation,       (ChromaDB +      (Fact-Check,
-                 Reddit)           Entity extraction,      Neo4j)           Entity Tracker,
+                 Telegram)           Entity extraction,      Neo4j)           Entity Tracker,
                                    VLM captioning)                          Prediction)
 ```
 
 ### Modules
 
-- **Scraper Agent** — fetches news from Tavily, RSS feeds (BBC, Reuters, AP), and Reddit. Deduplicates via SHA-256 content hashing.
+- **Scraper Agent** — fetches news from Tavily, RSS feeds (BBC, Reuters, AP), and Telegram. Deduplicates via SHA-256 content hashing.
 - **Preprocessing Agent** — extracts falsifiable claims (LLM), entities (spaCy + LLM), and image captions (GPT-4o vision). Outputs structured JSON.
 - **Memory Agent** — dual-database wrapper (ChromaDB for semantic search, Neo4j for knowledge graph). Single facade API for all agents.
 
-### Databases (Cloud-Hosted)
+### Databases/Storage (Cloud-Hosted)
 
-| Database | Purpose | Free Tier |
-|----------|---------|-----------|
+| Service | Purpose | Free Tier |
+|---------|---------|-----------|
 | Neo4j Aura | Knowledge Graph (entities, claims, relationships) | 200k nodes / 400k relationships |
 | ChromaDB Cloud | Vector DB (semantic search on claims, articles, captions) | Sufficient for project scale |
+| Cloudflare R2 | Object storage for Telegram images | 10 GB storage / 10M reads per month |
+
+### Why Telegram + Object Storage
+
+The original plan used Reddit as the social media source, but Reddit's API access approval process was not feasible within our project timeline. We switched to Telegram, which provides a similar role: unverified breaking news, rumors, and tip-offs from public channels -- the kind of claims our fact-checking pipeline is designed to verify.
+
+Unlike news articles (Tavily/RSS) where images are already hosted at public URLs, Telegram images are media attachments that need to be downloaded. We upload them to Cloudflare R2 to get a public URL, so the rest of the pipeline (VLM captioning, frontend display) works unchanged.
 
 ## Setup
 
@@ -33,7 +40,8 @@ News Sources --> Scraper Agent --> Preprocessing Agent --> Memory Agent --> Down
 - ChromaDB Cloud account ([trychroma.com](https://trychroma.com))
 - OpenAI API key
 - Tavily API key (optional, 1000 free credits/month at [tavily.com](https://tavily.com))
-- Reddit API credentials (optional)
+- Telegram API credentials (optional, get at [my.telegram.org](https://my.telegram.org))
+- Cloudflare R2 account (optional, free 10GB for image storage)
 
 ### 2. Configure Environment
 
@@ -98,7 +106,7 @@ src/
   pipeline.py            # End-to-end orchestration
   models/                # Pydantic data models (shared contract)
   memory/                # Memory Agent (ChromaDB + Neo4j facade)
-  scraper/               # Scraper Agent (Tavily, RSS, Reddit)
+  scraper/               # Scraper Agent (Tavily, RSS, Telegram)
   preprocessing/         # Preprocessing Agent (claims, entities, captions)
 scripts/
   init_neo4j.py          # Create DB constraints + indexes

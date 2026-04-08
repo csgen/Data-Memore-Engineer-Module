@@ -28,10 +28,15 @@ class Settings(BaseSettings):
     # Tavily Search API
     tavily_api_key: str = ""
 
-    # Reddit
-    reddit_client_id: str = ""
-    reddit_client_secret: str = ""
-    reddit_user_agent: str = "news-factcheck-scraper/1.0"
+    # Telegram
+    telegram_api_id: int = 0
+    telegram_api_hash: str = ""
+
+    # Cloudflare R2 (image storage)
+    r2_account_id: str = ""
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
+    r2_bucket_name: str = "news-images"
 
     # Model settings
     embedding_model: str = "text-embedding-3-small"

@@ -28,9 +28,9 @@
     "base_credibility": 0.75
   },
   {
-    "source_id": "src_reddit_com",
-    "name": "Reddit",
-    "domain": "reddit.com",
+    "source_id": "src_t_me",
+    "name": "Telegram",
+    "domain": "t.me",
     "category": "social_media",
     "base_credibility": 0.30
   },

@@ -21,7 +21,7 @@ SOURCE_CATEGORIES = {
     "bbc.co.uk": ("news_outlet", 0.90),
     "reuters.com": ("wire_service", 0.95),
     "apnews.com": ("wire_service", 0.95),
-    "reddit.com": ("social_media", 0.30),
+    "t.me": ("social_media", 0.30),
 }
 
 
