@@ -28,15 +28,8 @@ class Settings(BaseSettings):
     # Tavily Search API
     tavily_api_key: str = ""
 
-    # Telegram
-    telegram_api_id: int = 0
-    telegram_api_hash: str = ""
-
-    # Cloudflare R2 (image storage)
-    r2_account_id: str = ""
-    r2_access_key_id: str = ""
-    r2_secret_access_key: str = ""
-    r2_bucket_name: str = "news-images"
+    # Telegram scraper API (hosted on Google Cloud)
+    telegram_scraper_api_url: str = ""
 
     # Model settings
     embedding_model: str = "text-embedding-3-small"

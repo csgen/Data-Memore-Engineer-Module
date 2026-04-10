@@ -23,13 +23,13 @@ News Sources --> Scraper Agent --> Preprocessing Agent --> Memory Agent --> Down
 |---------|---------|-----------|
 | Neo4j Aura | Knowledge Graph (entities, claims, relationships) | 200k nodes / 400k relationships |
 | ChromaDB Cloud | Vector DB (semantic search on claims, articles, captions) | Sufficient for project scale |
-| Cloudflare R2 | Object storage for Telegram images | 10 GB storage / 10M reads per month |
+| Google Cloud Storage | Object storage for Telegram images (private repo) | 5 GB free |
 
-### Why Telegram + Object Storage
+### Why Telegram (and why it's a separate service)
 
 The original plan used Reddit as the social media source, but Reddit's API access approval process was not feasible within our project timeline. We switched to Telegram, which provides a similar role: unverified breaking news, rumors, and tip-offs from public channels -- the kind of claims our fact-checking pipeline is designed to verify.
 
-Unlike news articles (Tavily/RSS) where images are already hosted at public URLs, Telegram images are media attachments that need to be downloaded. We upload them to Cloudflare R2 to get a public URL, so the rest of the pipeline (VLM captioning, frontend display) works unchanged.
+The Telegram scraper lives in a **separate private repo** deployed on Google Cloud. This isolates personal credentials (Telegram API keys, Google Cloud Storage keys) from the shared team repo. This repo's `TelegramFetcher` is a thin HTTP client that calls the remote API and receives `list[RawArticle]` JSON -- same format as the other fetchers. When `TELEGRAM_SCRAPER_API_URL` is not set, the Telegram fetcher is simply skipped.
 
 ## Setup
 
@@ -40,8 +40,7 @@ Unlike news articles (Tavily/RSS) where images are already hosted at public URLs
 - ChromaDB Cloud account ([trychroma.com](https://trychroma.com))
 - OpenAI API key
 - Tavily API key (optional, 1000 free credits/month at [tavily.com](https://tavily.com))
-- Telegram API credentials (optional, get at [my.telegram.org](https://my.telegram.org))
-- Cloudflare R2 account (optional, free 10GB for image storage)
+- Telegram scraper API URL (optional, hosted separately — see `telegram-fetcher-handoff.md`)
 
 ### 2. Configure Environment
 

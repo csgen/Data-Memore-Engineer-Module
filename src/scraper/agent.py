@@ -6,7 +6,7 @@ from src.config import Settings
 from src.scraper.fetchers.base import BaseFetcher, RawArticle
 from src.scraper.fetchers.newsapi import TavilyFetcher
 from src.scraper.fetchers.rss import RSSFetcher
-from src.scraper.fetchers.telegram import R2Uploader, TelegramFetcher
+from src.scraper.fetchers.telegram import TelegramFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -22,22 +22,10 @@ class ScraperAgent:
         # RSS feeds (no API key needed)
         self._fetchers.append(RSSFetcher())
 
-        # Telegram
-        if settings.telegram_api_id and settings.telegram_api_hash:
-            r2 = None
-            if settings.r2_account_id and settings.r2_access_key_id:
-                r2 = R2Uploader(
-                    account_id=settings.r2_account_id,
-                    access_key_id=settings.r2_access_key_id,
-                    secret_access_key=settings.r2_secret_access_key,
-                    bucket_name=settings.r2_bucket_name,
-                )
+        # Telegram (remote API — credentials isolated)
+        if settings.telegram_scraper_api_url:
             self._fetchers.append(
-                TelegramFetcher(
-                    api_id=settings.telegram_api_id,
-                    api_hash=settings.telegram_api_hash,
-                    r2_uploader=r2,
-                )
+                TelegramFetcher(api_url=settings.telegram_scraper_api_url)
             )
 
     def scrape(self, max_per_source: int = 20) -> list[RawArticle]:
