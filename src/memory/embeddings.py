@@ -3,7 +3,8 @@
 import logging
 import time
 
-from openai import OpenAI
+from langfuse.decorators import observe
+from langfuse.openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ class EmbeddingHelper:
         """Embed a single text string."""
         return self.embed_batch([text])[0]
 
+    @observe(name="embedding_batch")
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Embed multiple texts with batching and exponential backoff."""
         all_embeddings: list[list[float]] = []

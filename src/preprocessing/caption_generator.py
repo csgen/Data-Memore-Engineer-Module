@@ -2,7 +2,8 @@
 
 import logging
 
-from openai import OpenAI
+from langfuse.decorators import observe
+from langfuse.openai import OpenAI
 
 from src.preprocessing.prompts import CAPTION_PROMPT
 
@@ -14,6 +15,7 @@ class CaptionGenerator:
         self._client = OpenAI(api_key=api_key)
         self._model = model
 
+    @observe(name="image_captioning")
     def generate_caption(self, image_url: str) -> str:
         """Generate an objective description of an image from its URL.
 

@@ -73,16 +73,16 @@ class PreprocessingAgent:
 
         # ── Extract Claims ──────────────────────────────────────────────
         raw_claims = self._claim_isolator.extract_claims(raw.title, raw.body_text)
+
+        # ── Extract Entities (batched — single LLM call for all claims) ─
+        all_entities = self._entity_extractor.extract_entities_batch(
+            claims=raw_claims,
+            article_context=raw.body_text,
+        )
+
         claims: list[Claim] = []
-
-        for raw_claim in raw_claims:
-            claim_id = make_id("clm_")
-
-            # Extract entities for this claim
-            entities_data = self._entity_extractor.extract_entities(
-                claim_text=raw_claim["text"],
-                article_context=raw.body_text,
-            )
+        for i, raw_claim in enumerate(raw_claims):
+            entities_data = all_entities[i] if i < len(all_entities) else []
 
             mentions = [
                 MentionSentiment(
@@ -95,7 +95,7 @@ class PreprocessingAgent:
             ]
 
             claim = Claim(
-                claim_id=claim_id,
+                claim_id=make_id("clm_"),
                 article_id=article_id,
                 claim_text=raw_claim["text"],
                 claim_type=raw_claim.get("type"),

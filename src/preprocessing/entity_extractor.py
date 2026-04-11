@@ -1,13 +1,14 @@
-"""Two-stage entity extraction: spaCy NER + LLM refinement."""
+"""Two-stage entity extraction: spaCy NER + LLM refinement (batched)."""
 
 import json
 import logging
 
 import spacy
-from openai import OpenAI
+from langfuse.decorators import observe
+from langfuse.openai import OpenAI
 
 from src.id_utils import make_entity_id
-from src.preprocessing.prompts import ENTITY_EXTRACTION_PROMPT
+from src.preprocessing.prompts import ENTITY_EXTRACTION_BATCH_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -18,28 +19,49 @@ class EntityExtractor:
         self._model = model
         self._nlp = spacy.load("en_core_web_sm")
 
-    def extract_entities(
+    @observe(name="entity_extraction_batch")
+    def extract_entities_batch(
         self,
-        claim_text: str,
+        claims: list[dict],
         article_context: str,
-    ) -> list[dict]:
-        """Extract and refine entities for a single claim.
+    ) -> list[list[dict]]:
+        """Extract entities for ALL claims in a single LLM call.
 
-        Returns list of {"entity_id", "name", "entity_type", "sentiment"}.
+        Args:
+            claims: list of {"text": str, "type": str} dicts
+            article_context: the full article body text
+
+        Returns:
+            list of entity lists, one per claim (same order as input).
+            Each entity is {"entity_id", "name", "entity_type", "sentiment"}.
         """
-        # Stage 1: spaCy NER for fast candidate extraction
-        candidates = self._spacy_ner(claim_text + " " + article_context)
+        if not claims:
+            return []
 
-        # Stage 2: LLM refinement
-        refined = self._llm_refine(claim_text, candidates, article_context)
+        # Stage 1: spaCy NER per claim (fast, free)
+        all_candidates = []
+        for claim in claims:
+            candidates = self._spacy_ner(claim["text"] + " " + article_context)
+            all_candidates.append(candidates)
+
+        # Stage 2: Single LLM call for all claims
+        results = self._llm_refine_batch(claims, all_candidates, article_context)
+
+        # If batch fails, fall back to spaCy candidates with neutral sentiment
+        if results is None:
+            results = [
+                [{**c, "sentiment": "neutral"} for c in candidates]
+                for candidates in all_candidates
+            ]
 
         # Generate deterministic entity IDs
-        for entity in refined:
-            entity["entity_id"] = make_entity_id(
-                entity["name"], entity["entity_type"]
-            )
+        for claim_entities in results:
+            for entity in claim_entities:
+                entity["entity_id"] = make_entity_id(
+                    entity["name"], entity["entity_type"]
+                )
 
-        return refined
+        return results
 
     def _spacy_ner(self, text: str) -> list[dict]:
         """Run spaCy NER to get candidate entities."""
@@ -47,7 +69,6 @@ class EntityExtractor:
         candidates = []
         seen = set()
 
-        # Map spaCy labels to our entity types
         label_map = {
             "PERSON": "person",
             "ORG": "organization",
@@ -69,16 +90,24 @@ class EntityExtractor:
 
         return candidates
 
-    def _llm_refine(
+    def _llm_refine_batch(
         self,
-        claim_text: str,
-        ner_candidates: list[dict],
+        claims: list[dict],
+        all_candidates: list[list[dict]],
         article_context: str,
-    ) -> list[dict]:
-        """Use LLM to refine, merge, and assign sentiment to entities."""
-        prompt = ENTITY_EXTRACTION_PROMPT.format(
-            claim_text=claim_text,
-            ner_candidates=json.dumps(ner_candidates),
+    ) -> list[list[dict]] | None:
+        """Use a single LLM call to refine entities for all claims."""
+        # Build the claims + candidates block for the prompt
+        claims_block = []
+        for i, (claim, candidates) in enumerate(zip(claims, all_candidates)):
+            claims_block.append(
+                f"Claim {i}: \"{claim['text']}\"\n"
+                f"NER candidates: {json.dumps(candidates)}"
+            )
+        claims_text = "\n\n".join(claims_block)
+
+        prompt = ENTITY_EXTRACTION_BATCH_PROMPT.format(
+            claims_with_candidates=claims_text,
             article_context=article_context[:500],
         )
 
@@ -91,22 +120,24 @@ class EntityExtractor:
             )
             content = response.choices[0].message.content
             parsed = json.loads(content)
-            entities = parsed.get("entities", [])
+            claim_results = parsed.get("claims", [])
 
-            valid = []
-            for e in entities:
-                if isinstance(e, dict) and "name" in e and "entity_type" in e:
-                    valid.append({
-                        "name": e["name"],
-                        "entity_type": e["entity_type"],
-                        "sentiment": e.get("sentiment", "neutral"),
-                    })
+            # Build result list indexed by claim position
+            results: list[list[dict]] = [[] for _ in claims]
+            for item in claim_results:
+                idx = item.get("claim_index", -1)
+                if 0 <= idx < len(claims):
+                    for e in item.get("entities", []):
+                        if isinstance(e, dict) and "name" in e and "entity_type" in e:
+                            results[idx].append({
+                                "name": e["name"],
+                                "entity_type": e["entity_type"],
+                                "sentiment": e.get("sentiment", "neutral"),
+                            })
 
-            return valid
+            logger.info("Batch entity extraction: %d claims processed in 1 LLM call", len(claims))
+            return results
 
         except Exception as e:
-            logger.error("LLM entity refinement failed: %s", e)
-            # Fall back to spaCy candidates with neutral sentiment
-            return [
-                {**c, "sentiment": "neutral"} for c in ner_candidates
-            ]
+            logger.error("Batch LLM entity refinement failed: %s", e)
+            return None

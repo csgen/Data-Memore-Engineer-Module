@@ -55,6 +55,38 @@ Return a JSON object:
 }}
 """
 
+ENTITY_EXTRACTION_BATCH_PROMPT = """\
+You are an NLP specialist. Given multiple news claims from the same article and candidate entities from NER, refine the entity list for EACH claim.
+
+Tasks for each claim:
+1. Correct any misclassified entity types
+2. Merge duplicates (e.g., "Elon Musk" and "Musk" should be one entity)
+3. Normalize entity names to their canonical form (full name for people, official name for orgs)
+4. Assign entity_type from: "person", "organization", "country", "location", "event", "product"
+5. Determine the sentiment of that specific claim toward each entity: "positive", "negative", or "neutral"
+
+Claims and their NER candidates:
+{claims_with_candidates}
+
+Article context: {article_context}
+
+Return a JSON object with entities grouped by claim index (0-based):
+{{
+  "claims": [
+    {{
+      "claim_index": 0,
+      "entities": [
+        {{
+          "name": "canonical entity name",
+          "entity_type": "person|organization|country|location|event|product",
+          "sentiment": "positive|negative|neutral"
+        }}
+      ]
+    }}
+  ]
+}}
+"""
+
 CAPTION_PROMPT = """\
 Describe this image in purely objective, factual terms. Focus on:
 - Physical objects visible in the image

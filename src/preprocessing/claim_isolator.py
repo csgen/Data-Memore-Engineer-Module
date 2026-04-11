@@ -3,7 +3,8 @@
 import json
 import logging
 
-from openai import OpenAI
+from langfuse.decorators import observe
+from langfuse.openai import OpenAI
 
 from src.preprocessing.prompts import CLAIM_ISOLATION_PROMPT
 
@@ -15,6 +16,7 @@ class ClaimIsolator:
         self._client = OpenAI(api_key=api_key)
         self._model = model
 
+    @observe(name="claim_isolation")
     def extract_claims(self, title: str, body_text: str) -> list[dict]:
         """Extract falsifiable claims from article text.
 
