@@ -25,7 +25,10 @@ class ScraperAgent:
         # Telegram (remote API — credentials isolated)
         if settings.telegram_scraper_api_url:
             self._fetchers.append(
-                TelegramFetcher(api_url=settings.telegram_scraper_api_url)
+                TelegramFetcher(
+                    api_url=settings.telegram_scraper_api_url,
+                    api_key=settings.telegram_scraper_api_key,
+                )
             )
 
     def scrape(self, max_per_source: int = 20) -> list[RawArticle]:

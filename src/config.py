@@ -30,6 +30,7 @@ class Settings(BaseSettings):
 
     # Telegram scraper API (hosted on Google Cloud)
     telegram_scraper_api_url: str = ""
+    telegram_scraper_api_key: str = ""
 
     # Model settings
     embedding_model: str = "text-embedding-3-small"

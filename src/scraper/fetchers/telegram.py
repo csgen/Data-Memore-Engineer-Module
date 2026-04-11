@@ -15,8 +15,9 @@ logger = logging.getLogger(__name__)
 
 
 class TelegramFetcher(BaseFetcher):
-    def __init__(self, api_url: str):
+    def __init__(self, api_url: str, api_key: str = ""):
         self._api_url = api_url.rstrip("/")
+        self._api_key = api_key
 
     def fetch(self, max_results: int = 20) -> list[RawArticle]:
         articles: list[RawArticle] = []
@@ -26,6 +27,7 @@ class TelegramFetcher(BaseFetcher):
                 response = client.post(
                     f"{self._api_url}/scrape",
                     json={"max_results": max_results},
+                    headers={"X-API-Key": self._api_key},
                 )
                 response.raise_for_status()
                 data = response.json()
