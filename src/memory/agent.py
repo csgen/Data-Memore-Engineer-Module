@@ -34,8 +34,6 @@ class MemoryAgent:
             model=settings.embedding_model,
         )
         self._vector = VectorStore(
-            host=settings.chroma_host,
-            port=settings.chroma_port,
             api_key=settings.chroma_api_key,
             tenant=settings.chroma_tenant,
             database=settings.chroma_database,

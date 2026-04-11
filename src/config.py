@@ -16,8 +16,6 @@ class Settings(BaseSettings):
     neo4j_password: str
 
     # ChromaDB Cloud
-    chroma_host: str = "api.trychroma.com"
-    chroma_port: int = 443
     chroma_api_key: str = ""
     chroma_tenant: str = ""
     chroma_database: str = ""

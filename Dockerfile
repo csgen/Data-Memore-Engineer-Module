@@ -18,4 +18,5 @@ RUN python -m spacy download en_core_web_sm
 # Copy source code
 COPY . .
 
-CMD ["python", "-m", "src.pipeline"]
+# Keep container alive for interactive use (docker-compose exec app ...)
+CMD ["tail", "-f", "/dev/null"]

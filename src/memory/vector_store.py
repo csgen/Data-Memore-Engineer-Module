@@ -3,7 +3,6 @@
 import logging
 
 import chromadb
-from chromadb.config import Settings as ChromaSettings
 
 logger = logging.getLogger(__name__)
 
@@ -11,24 +10,20 @@ logger = logging.getLogger(__name__)
 class VectorStore:
     def __init__(
         self,
-        host: str,
-        port: int,
         api_key: str = "",
         tenant: str = "",
         database: str = "",
     ):
         if api_key:
-            self._client = chromadb.HttpClient(
-                host=host,
-                port=port,
-                ssl=True,
-                headers={"Authorization": f"Bearer {api_key}"},
+            # ChromaDB Cloud
+            self._client = chromadb.CloudClient(
+                api_key=api_key,
                 tenant=tenant,
                 database=database,
             )
         else:
             # Local ChromaDB (for development/testing)
-            self._client = chromadb.HttpClient(host=host, port=port)
+            self._client = chromadb.Client()
 
         self._claims = self._client.get_or_create_collection("claims")
         self._articles = self._client.get_or_create_collection("articles")
