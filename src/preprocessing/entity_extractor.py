@@ -12,6 +12,8 @@ from src.preprocessing.prompts import ENTITY_EXTRACTION_BATCH_PROMPT
 
 logger = logging.getLogger(__name__)
 
+BATCH_CHUNK_SIZE = 3
+
 
 class EntityExtractor:
     def __init__(self, api_key: str, model: str = "gpt-4o"):
@@ -25,7 +27,7 @@ class EntityExtractor:
         claims: list[dict],
         article_context: str,
     ) -> list[list[dict]]:
-        """Extract entities for ALL claims in a single LLM call.
+        """Extract entities for all claims, chunked into groups of 3 per LLM call.
 
         Args:
             claims: list of {"text": str, "type": str} dicts
@@ -44,24 +46,33 @@ class EntityExtractor:
             candidates = self._spacy_ner(claim["text"] + " " + article_context)
             all_candidates.append(candidates)
 
-        # Stage 2: Single LLM call for all claims
-        results = self._llm_refine_batch(claims, all_candidates, article_context)
+        # Stage 2: LLM refinement in chunks of BATCH_CHUNK_SIZE
+        all_results: list[list[dict]] = []
+        for i in range(0, len(claims), BATCH_CHUNK_SIZE):
+            chunk_claims = claims[i : i + BATCH_CHUNK_SIZE]
+            chunk_candidates = all_candidates[i : i + BATCH_CHUNK_SIZE]
 
-        # If batch fails, fall back to spaCy candidates with neutral sentiment
-        if results is None:
-            results = [
-                [{**c, "sentiment": "neutral"} for c in candidates]
-                for candidates in all_candidates
-            ]
+            chunk_results = self._llm_refine_batch(
+                chunk_claims, chunk_candidates, article_context
+            )
+
+            # If chunk fails, fall back to spaCy candidates
+            if chunk_results is None:
+                chunk_results = [
+                    [{**c, "sentiment": "neutral"} for c in candidates]
+                    for candidates in chunk_candidates
+                ]
+
+            all_results.extend(chunk_results)
 
         # Generate deterministic entity IDs
-        for claim_entities in results:
+        for claim_entities in all_results:
             for entity in claim_entities:
                 entity["entity_id"] = make_entity_id(
                     entity["name"], entity["entity_type"]
                 )
 
-        return results
+        return all_results
 
     def _spacy_ner(self, text: str) -> list[dict]:
         """Run spaCy NER to get candidate entities."""
