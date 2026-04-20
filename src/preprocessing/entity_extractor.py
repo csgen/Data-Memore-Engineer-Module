@@ -8,6 +8,7 @@ from langfuse.decorators import observe
 from langfuse.openai import OpenAI
 
 from src.id_utils import make_entity_id
+from src.preprocessing.canonical_names import canonicalize
 from src.preprocessing.prompts import ENTITY_EXTRACTION_BATCH_PROMPT
 
 logger = logging.getLogger(__name__)
@@ -40,10 +41,12 @@ class EntityExtractor:
         if not claims:
             return []
 
-        # Stage 1: spaCy NER per claim (fast, free)
+        # Stage 1: spaCy NER per claim (fast, free) — ONLY on claim text
+        # Running NER on claim + article_context caused the LLM to extract
+        # article-wide entities for every claim (>100 entities per claim).
         all_candidates = []
         for claim in claims:
-            candidates = self._spacy_ner(claim["text"] + " " + article_context)
+            candidates = self._spacy_ner(claim["text"])
             all_candidates.append(candidates)
 
         # Stage 2: LLM refinement in chunks of BATCH_CHUNK_SIZE
@@ -65,11 +68,15 @@ class EntityExtractor:
 
             all_results.extend(chunk_results)
 
-        # Generate deterministic entity IDs
+        # Canonicalize names + generate deterministic entity IDs
+        # This unifies known aliases (USA → United States) into a single entity_id
+        # so Neo4j MERGE treats them as the same node.
         for claim_entities in all_results:
             for entity in claim_entities:
+                canonical = canonicalize(entity["name"], entity["entity_type"])
+                entity["name"] = canonical
                 entity["entity_id"] = make_entity_id(
-                    entity["name"], entity["entity_type"]
+                    canonical, entity["entity_type"]
                 )
 
         return all_results

@@ -16,7 +16,9 @@ from datetime import datetime
 from typing import Optional
 
 from src.config import Settings
+from src.memory.canonical_promoter import CanonicalPromoter
 from src.memory.embeddings import EmbeddingHelper
+from src.memory.entity_merger import EntityMerger
 from src.memory.graph_store import GraphStore
 from src.memory.vector_store import VectorStore
 from src.models.caption import ImageCaption
@@ -43,6 +45,8 @@ class MemoryAgent:
             user=settings.neo4j_user,
             password=settings.neo4j_password,
         )
+        self._entity_merger = EntityMerger(self._graph, self._embeddings)
+        self._canonical_promoter = CanonicalPromoter(self._graph)
         logger.info("MemoryAgent initialized")
 
     def close(self) -> None:
@@ -239,6 +243,25 @@ class MemoryAgent:
     def update_entity(self, entity_id: str, **updates) -> None:
         """Update fields on an Entity node."""
         self._graph.update_entity(entity_id, updates)
+
+    # ── Entity Reconciliation (post-ingestion) ──────────────────────────
+
+    def reconcile_entities(self) -> dict:
+        """Cluster variant entities and merge them.
+
+        Uses 3-tier matching: fuzzy string match + embedding similarity.
+        Safe to call multiple times (idempotent when no new variants exist).
+        Returns summary dict for logging.
+        """
+        return self._entity_merger.reconcile()
+
+    def promote_canonical_candidates(self, threshold: int = 10) -> list[dict]:
+        """Auto-append entities with >= threshold mentions to the canonical list.
+
+        Must be called AFTER reconcile_entities() so counts reflect merged variants.
+        Returns list of promoted entries for logging.
+        """
+        return self._canonical_promoter.promote(threshold=threshold)
 
     def add_prediction(self, prediction: Prediction) -> None:
         """Write a prediction to Graph DB."""

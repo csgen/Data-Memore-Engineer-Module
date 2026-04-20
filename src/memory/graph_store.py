@@ -277,6 +277,116 @@ class GraphStore:
                 **updates,
             )
 
+    # ── Entity reconciliation (called by entity_merger) ─────────────────
+
+    def get_all_entities(self) -> list[dict]:
+        """Fetch all Entity nodes with their aggregate fields.
+
+        Used by the entity_merger to cluster variants and determine
+        merge targets.
+        """
+        with self._driver.session() as session:
+            result = session.run(
+                """
+                MATCH (e:Entity)
+                RETURN e.entity_id AS entity_id,
+                       e.name AS name,
+                       e.entity_type AS entity_type,
+                       coalesce(e.total_claims, 0) AS total_claims,
+                       coalesce(e.accurate_claims, 0) AS accurate_claims,
+                       coalesce(e.current_credibility, 0.5) AS current_credibility
+                """
+            )
+            return [dict(record) for record in result]
+
+    def count_entity_mentions(self, entity_id: str) -> int:
+        """Count how many claims mention this entity (live count from MENTIONS edges)."""
+        with self._driver.session() as session:
+            result = session.run(
+                """
+                MATCH (:Claim)-[m:MENTIONS]->(e:Entity {entity_id: $entity_id})
+                RETURN count(m) AS mention_count
+                """,
+                entity_id=entity_id,
+            )
+            record = result.single()
+            return record["mention_count"] if record else 0
+
+    def merge_entity(self, source_id: str, target_id: str) -> None:
+        """Merge source Entity into target Entity.
+
+        Rewires all edges from source to target, sums aggregate fields,
+        updates first_seen/last_seen bounds, then deletes source.
+        Safe no-op if source_id == target_id.
+        """
+        if source_id == target_id:
+            return
+
+        with self._driver.session() as session:
+            # Rewire CLAIM-[:MENTIONS]->source to CLAIM-[:MENTIONS]->target
+            # (preserving sentiment property on the edge)
+            session.run(
+                """
+                MATCH (c:Claim)-[m:MENTIONS]->(s:Entity {entity_id: $source_id})
+                MATCH (t:Entity {entity_id: $target_id})
+                CREATE (c)-[:MENTIONS {sentiment: m.sentiment}]->(t)
+                DELETE m
+                """,
+                source_id=source_id,
+                target_id=target_id,
+            )
+
+            # Rewire source-[:TRACKED_OVER_TIME]->snapshot to target
+            session.run(
+                """
+                MATCH (s:Entity {entity_id: $source_id})-[r:TRACKED_OVER_TIME]->(snap:CredibilitySnapshot)
+                MATCH (t:Entity {entity_id: $target_id})
+                CREATE (t)-[:TRACKED_OVER_TIME]->(snap)
+                DELETE r
+                SET snap.entity_id = $target_id
+                """,
+                source_id=source_id,
+                target_id=target_id,
+            )
+
+            # Rewire source-[:SUBJECT_OF]->prediction to target
+            session.run(
+                """
+                MATCH (s:Entity {entity_id: $source_id})-[r:SUBJECT_OF]->(p:Prediction)
+                MATCH (t:Entity {entity_id: $target_id})
+                CREATE (t)-[:SUBJECT_OF]->(p)
+                DELETE r
+                SET p.entity_id = $target_id
+                """,
+                source_id=source_id,
+                target_id=target_id,
+            )
+
+            # Sum aggregate fields and update first_seen/last_seen bounds, then delete source
+            session.run(
+                """
+                MATCH (s:Entity {entity_id: $source_id})
+                MATCH (t:Entity {entity_id: $target_id})
+                SET t.total_claims = coalesce(t.total_claims, 0) + coalesce(s.total_claims, 0),
+                    t.accurate_claims = coalesce(t.accurate_claims, 0) + coalesce(s.accurate_claims, 0),
+                    t.first_seen = CASE
+                        WHEN s.first_seen IS NULL THEN t.first_seen
+                        WHEN t.first_seen IS NULL THEN s.first_seen
+                        WHEN s.first_seen < t.first_seen THEN s.first_seen
+                        ELSE t.first_seen
+                    END,
+                    t.last_seen = CASE
+                        WHEN s.last_seen IS NULL THEN t.last_seen
+                        WHEN t.last_seen IS NULL THEN s.last_seen
+                        WHEN s.last_seen > t.last_seen THEN s.last_seen
+                        ELSE t.last_seen
+                    END
+                DETACH DELETE s
+                """,
+                source_id=source_id,
+                target_id=target_id,
+            )
+
     # ── Write: Predictions (called by Prediction Agent) ─────────────────
 
     def create_prediction(

@@ -48,11 +48,27 @@ def run_pipeline(max_per_source: int = 20) -> dict:
                 logger.error("Failed to process article '%s': %s", raw.title[:50], e)
                 failed += 1
 
+        # Step 3: Entity reconciliation (cluster variants → merge)
+        try:
+            reconcile_summary = memory.reconcile_entities()
+        except Exception as e:
+            logger.error("Entity reconciliation failed: %s", e)
+            reconcile_summary = {}
+
+        # Step 4: Promote significant entities to canonical list
+        try:
+            promoted = memory.promote_canonical_candidates()
+        except Exception as e:
+            logger.error("Canonical promotion failed: %s", e)
+            promoted = []
+
         summary = {
             "scraped": len(raw_articles),
             "ingested": ingested,
             "skipped_duplicates": skipped,
             "failed": failed,
+            "reconcile": reconcile_summary,
+            "promoted_canonical": len(promoted),
         }
         logger.info("Pipeline complete: %s", summary)
         return summary
