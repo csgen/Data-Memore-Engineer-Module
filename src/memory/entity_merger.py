@@ -2,14 +2,14 @@
 
 After article ingestion, this module:
 1. Fetches all Entity nodes from Neo4j
-2. Clusters variants using three tiers: fuzzy string match + embedding similarity
+2. Clusters variants using two tiers:
+   - Tier 2: fuzzy string match (rapidfuzz) — catches typos, abbreviations
+   - Tier 3: embedding similarity (OpenAI text-embedding-3-small) — catches
+     semantic variants ("America" vs "United States") that differ in surface form
 3. Merges each cluster into a single representative entity (canonical if present)
 
-This fixes the entity fragmentation problem where "USA", "US", "United States"
-get stored as separate Entity nodes despite referring to the same real-world entity.
-Known aliases are already handled during extraction (canonical_names.canonicalize);
-this pass catches the rest — typos, abbreviations, and semantic variants the
-canonical list doesn't know about.
+Tier 1 (canonical list lookup) is already applied during extraction in
+`canonical_names.canonicalize`. This pass catches the rest.
 """
 
 import logging
@@ -24,10 +24,8 @@ from src.preprocessing.canonical_names import get_all_canonical_names
 
 logger = logging.getLogger(__name__)
 
-FUZZY_THRESHOLD = 85          # rapidfuzz token_sort_ratio (0-100)
-EMBED_THRESHOLD = 0.80        # cosine similarity for direct merge
-EMBED_AMBIGUOUS_LOWER = 0.70  # below this: no merge; above EMBED_THRESHOLD: auto-merge
-# Between 0.70 and 0.80 is the ambiguous zone (optional Tier 4 LLM verification — not implemented for cost)
+FUZZY_THRESHOLD = 85     # rapidfuzz token_sort_ratio (0-100)
+EMBED_THRESHOLD = 0.85   # cosine similarity for merge (conservative to avoid false positives)
 
 
 class UnionFind:
@@ -58,7 +56,11 @@ class UnionFind:
 
 
 class EntityMerger:
-    def __init__(self, graph_store: GraphStore, embedding_helper: EmbeddingHelper):
+    def __init__(
+        self,
+        graph_store: GraphStore,
+        embedding_helper: EmbeddingHelper,
+    ):
         self._graph = graph_store
         self._embeddings = embedding_helper
 
@@ -118,7 +120,7 @@ class EntityMerger:
                 if score >= FUZZY_THRESHOLD:
                     uf.union(ids[i], ids[j])
 
-        # Tier 3: embedding similarity
+        # Tier 3: embedding similarity (catches semantic matches fuzzy can't)
         try:
             names = [e["name"] for e in entities]
             vectors = self._embeddings.embed_batch(names)
@@ -129,11 +131,9 @@ class EntityMerger:
 
             for i in range(n):
                 for j in range(i + 1, n):
-                    sim = similarity[i, j]
+                    sim = float(similarity[i, j])
                     if sim >= EMBED_THRESHOLD:
                         uf.union(ids[i], ids[j])
-                    # (0.70 - 0.80) ambiguous zone: skipped for cost.
-                    # If needed, add LLM verification here.
         except Exception as e:
             logger.warning("Embedding similarity step failed, skipping: %s", e)
 
