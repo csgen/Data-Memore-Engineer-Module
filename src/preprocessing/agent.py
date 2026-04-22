@@ -12,6 +12,7 @@ from src.models.pipeline import PreprocessingOutput
 from src.preprocessing.caption_generator import CaptionGenerator
 from src.preprocessing.claim_isolator import ClaimIsolator
 from src.preprocessing.entity_extractor import EntityExtractor
+from src.preprocessing.text_cleaner import clean_body_text
 from src.scraper.fetchers.base import RawArticle
 
 logger = logging.getLogger(__name__)
@@ -44,6 +45,11 @@ class PreprocessingAgent:
         """Transform a RawArticle into structured PreprocessingOutput."""
         now = datetime.now(timezone.utc)
 
+        # ── Clean body text ─────────────────────────────────────────────
+        # Tavily's raw_content includes navigation/boilerplate Markdown. Strip
+        # it here once so all downstream LLM calls use clean text.
+        cleaned_body = clean_body_text(raw.body_text)
+
         # ── Build Source ────────────────────────────────────────────────
         category, base_credibility = SOURCE_CATEGORIES.get(
             raw.source_domain, ("unknown", 0.50)
@@ -59,7 +65,7 @@ class PreprocessingAgent:
 
         # ── Build Article ───────────────────────────────────────────────
         article_id = make_id("art_")
-        body_snippet = f"{raw.title}. {raw.body_text[:500]}"
+        body_snippet = f"{raw.title}. {cleaned_body[:500]}"
         article = Article(
             article_id=article_id,
             title=raw.title,
@@ -72,12 +78,12 @@ class PreprocessingAgent:
         )
 
         # ── Extract Claims ──────────────────────────────────────────────
-        raw_claims = self._claim_isolator.extract_claims(raw.title, raw.body_text)
+        raw_claims = self._claim_isolator.extract_claims(raw.title, cleaned_body)
 
         # ── Extract Entities (batched — single LLM call for all claims) ─
         all_entities = self._entity_extractor.extract_entities_batch(
             claims=raw_claims,
-            article_context=raw.body_text,
+            article_context=cleaned_body,
         )
 
         claims: list[Claim] = []
