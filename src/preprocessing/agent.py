@@ -38,7 +38,7 @@ class PreprocessingAgent:
         )
         self._caption_generator = CaptionGenerator(
             api_key=settings.openai_api_key,
-            model=settings.llm_model,
+            model=settings.vision_model,
         )
 
     def process(self, raw: RawArticle) -> PreprocessingOutput:

@@ -20,8 +20,11 @@ class Settings(BaseSettings):
     chroma_tenant: str = ""
     chroma_database: str = ""
 
-    # OpenAI
+    # OpenAI (claim + entity extraction via gpt-4o-mini; vision caption via gpt-4o)
     openai_api_key: str
+
+    # Google AI Studio (embeddings via gemini-embedding-001)
+    google_api_key: str = ""
 
     # Tavily Search API
     tavily_api_key: str = ""
@@ -31,7 +34,9 @@ class Settings(BaseSettings):
     telegram_scraper_api_key: str = ""
 
     # Model settings
-    embedding_model: str = "text-embedding-3-small"
-    llm_model: str = "gpt-4o"
+    embedding_model: str = "gemini-embedding-001"
+    embedding_dim: int = 1536
+    llm_model: str = "gpt-4o-mini"
+    vision_model: str = "gpt-4o"
 
 settings = Settings()

@@ -1,4 +1,4 @@
-"""LLM-based claim isolation from article text."""
+"""LLM-based claim isolation from article text (OpenAI gpt-4o-mini)."""
 
 import json
 import logging
@@ -12,7 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 class ClaimIsolator:
-    def __init__(self, api_key: str, model: str = "gpt-4o"):
+    def __init__(self, api_key: str, model: str):
+        # langfuse.openai auto-instruments: every .chat.completions.create call
+        # becomes a child generation span under the current @observe trace, with
+        # model name, input/output tokens, and latency captured automatically.
         self._client = OpenAI(api_key=api_key)
         self._model = model
 
@@ -29,13 +32,12 @@ class ClaimIsolator:
                 model=self._model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                temperature=0.1,
+                temperature=0.0,
             )
             content = response.choices[0].message.content
             parsed = json.loads(content)
             claims = parsed.get("claims", [])
 
-            # Validate structure
             valid_claims = []
             for claim in claims:
                 if isinstance(claim, dict) and "text" in claim:

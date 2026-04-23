@@ -17,7 +17,8 @@ BATCH_CHUNK_SIZE = 3
 
 
 class EntityExtractor:
-    def __init__(self, api_key: str, model: str = "gpt-4o"):
+    def __init__(self, api_key: str, model: str):
+        # langfuse.openai auto-instruments; no manual generation tagging needed.
         self._client = OpenAI(api_key=api_key)
         self._model = model
         self._nlp = spacy.load("en_core_web_sm")
@@ -134,7 +135,7 @@ class EntityExtractor:
                 model=self._model,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                temperature=0.1,
+                temperature=0.0,
             )
             content = response.choices[0].message.content
             parsed = json.loads(content)

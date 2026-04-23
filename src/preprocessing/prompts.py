@@ -4,6 +4,7 @@ CLAIM_ISOLATION_PROMPT = """\
 You are a fact-checking assistant. Given a news article, extract all falsifiable claims.
 
 A falsifiable claim is a concrete statement that can be verified as true or false using evidence.
+If there is explicit expression of the statement source, it should also be included in the claim.
 Exclude opinions, questions, and vague statements.
 
 For each claim, classify its type:

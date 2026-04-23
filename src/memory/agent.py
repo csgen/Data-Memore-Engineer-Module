@@ -32,8 +32,9 @@ logger = logging.getLogger(__name__)
 class MemoryAgent:
     def __init__(self, settings: Settings):
         self._embeddings = EmbeddingHelper(
-            api_key=settings.openai_api_key,
+            api_key=settings.google_api_key,
             model=settings.embedding_model,
+            output_dimensionality=settings.embedding_dim,
         )
         self._vector = VectorStore(
             api_key=settings.chroma_api_key,
