@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     telegram_scraper_api_url: str = ""
     telegram_scraper_api_key: str = ""
 
+    # EnsembleData API (Reddit keyword search)
+    ensembledata_api_token: str = ""
+
     # Model settings
     embedding_model: str = "gemini-embedding-001"
     embedding_dim: int = 1536

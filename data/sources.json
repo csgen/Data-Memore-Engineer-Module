@@ -47,5 +47,12 @@
     "domain": "theguardian.com",
     "category": "news_outlet",
     "base_credibility": 0.82
+  },
+  {
+    "source_id": "src_reddit_com",
+    "name": "Reddit",
+    "domain": "reddit.com",
+    "category": "social_media",
+    "base_credibility": 0.25
   }
 ]

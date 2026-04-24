@@ -31,3 +31,6 @@ coverage.xml
 
 # Logs
 *.log
+
+# Exploratory API samples (do not commit third-party API responses)
+scripts/ensembledata_samples/

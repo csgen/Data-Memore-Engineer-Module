@@ -5,6 +5,7 @@ import logging
 from src.config import Settings
 from src.scraper.fetchers.base import BaseFetcher, RawArticle
 from src.scraper.fetchers.newsapi import TavilyFetcher
+from src.scraper.fetchers.reddit import RedditFetcher
 from src.scraper.fetchers.rss import RSSFetcher
 from src.scraper.fetchers.telegram import TelegramFetcher
 
@@ -29,6 +30,12 @@ class ScraperAgent:
                     api_url=settings.telegram_scraper_api_url,
                     api_key=settings.telegram_scraper_api_key,
                 )
+            )
+
+        # Reddit via EnsembleData (subreddit-posts endpoint)
+        if settings.ensembledata_api_token:
+            self._fetchers.append(
+                RedditFetcher(api_token=settings.ensembledata_api_token)
             )
 
     def scrape(self, max_per_source: int = 20) -> list[RawArticle]:
